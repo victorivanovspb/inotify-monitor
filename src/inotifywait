@@ -1,0 +1,61 @@
+#!/bin/bash
+
+# inotifywait: Start/Stop inotifywait
+# description: inotifywait waits for changes to files using inotify.
+# processname: inotifywait
+
+. /etc/inotifywait.conf
+
+PID=/var/run/inotifywait.pid
+RETVAL=0
+start() {
+   echo -n $"Starting inotifywait: "
+   if [ -f $PID ]
+   then
+      echo "inotifywait is running"
+      RETVAL=1
+   else
+      /usr/bin/inotifywait \
+         --format '%w%f %e %T' \
+         --timefmt '%Y/%m/%d-%H:%M:%S' \
+         --exclude '.*\.sw[pox].*' \
+         -e $EVENT \
+         -o $LOGFILE \
+         -dmrq $MONITOR
+      RETVAL=$?
+      if [ $RETVAL -eq 0 ] 
+      then 
+         #rm -f $PID
+         ps --ppid 1 | grep inotifywait | awk '{print $1}' >$PID
+      fi
+   fi
+   #echo $RETVAL
+   return $RETVAL
+}
+stop() {
+   echo -n $"Stopping inotifywait: "
+   /sbin/start-stop-daemon --stop --signal 9 --pidfile $PID
+   RETVAL=$?
+   #echo $RETVAL
+   [ $RETVAL -eq 0 ] && rm -f $PID
+   return $RETVAL
+}
+case "$1" in
+   start)
+      start
+      ;;
+   stop)
+      stop
+      ;;
+   status)
+      status inotifywait
+      ;;
+   restart)
+      stop
+      start
+      ;;
+   *)
+      echo $"Usage: $0 {start|stop|status|restart}"
+      exit 1
+esac
+exit $?
